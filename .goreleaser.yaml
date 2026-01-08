@@ -1,86 +1,71 @@
-# This is an example .goreleaser.yml file with some sensible defaults.
-# Make sure to check the documentation at https://goreleaser.com
-
-# The lines below are called `modelines`. See `:help modeline`
-# Feel free to remove those if you don't want/need to use them.
-# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
-# vim: set ts=2 sw=2 tw=0 fo=cnqoj
-
 version: 2
+project_name: kodkafa
 
 before:
   hooks:
-    # You may remove this if you don't use go modules.
     - go mod tidy
-    # you may remove this if you don't need go generate
     - go generate ./...
-
 
 builds:
   - id: kodkafa-cli
     main: ./cmd/kodkafa/main.go
     binary: kodkafa
-    ldflags:
-      - -X kodkafa/internal/build.Version={{.Version}}-beta 
-      - -X kodkafa/internal/build.Commit={{.ShortCommit}}
     env:
       - CGO_ENABLED=0
-    goos:
-      - linux
-      - darwin
-      - windows
+    goos: [linux, darwin, windows]
+    ldflags:
+      - -X kodkafa/internal.Version={{.Version}}
+      - -X kodkafa/internal.Commit={{.ShortCommit}}
 
   - id: kod-cli
     main: ./cmd/kod/main.go 
-    binary: kod
+    binary: kod            
     env:
       - CGO_ENABLED=0
-    goos:
-      - linux
-      - darwin
-      - windows
-
+    goos: [linux, darwin, windows]
+    ldflags:
+      - -X kodkafa/internal.Version={{.Version}}
 
 archives:
   - formats: [tar.gz]
-    # this name template makes the OS and Arch compatible with the results of `uname`.
-    name_template: >-
-      {{ .ProjectName }}_
-      {{- title .Os }}_
-      {{- if eq .Arch "amd64" }}x86_64
-      {{- else if eq .Arch "386" }}i386
-      {{- else }}{{ .Arch }}{{ end }}
-      {{- if .Arm }}v{{ .Arm }}{{ end }}
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     files:
       - README.md
-      - LICENSE.md
-    # use zip for windows archives
+      - LICENSE*
     format_overrides:
       - goos: windows
-        formats: [zip]
+        formats: [zip] 
+
+# Yeni standart: homebrew_casks (v2.10+)
+homebrew_casks:
+  - name: kodkafa
+    description: "A Persistent CLI for Your Scripts, With Memory"
+    homepage: "https://kodkafa.com"
+    repository:
+      owner: kodkafa
+      name: homebrew-tap
+
+    binaries:
+      - kod
+      - kodkafa
+
+    hooks:
+      post:
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/kod"]
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/kodkafa"]
+          end
+
+    caveats: |
+      KODKAFA is installed! You can use 'kod' or 'kodkafa' commands.
+      If you face security issues on macOS, run:
+      xattr -dr com.apple.quarantine $(which kodkafa)
 
 changelog:
   sort: asc
   filters:
-    exclude:
-      - "^docs:"
-      - "^test:"
+    exclude: ["^docs:", "^test:"]
 
 release:
-  footer: >-
-
-    ---
-
-    Released by [KODKAFA](https://github.com/kodkafa).
-
-brews:
-  - name: kodkafa
-    repository:
-      owner: kodkafa
-      name: homebrew-tap
-    directory: Formula
-    homepage: "https://kodkafa.com" #
-    description: "A Persistent CLI for Your Scripts, With Memory" #
-    install: |
-      bin.install "kod"
-      bin.install "kodkafa"
+  footer: "Released by [KODKAFA](https://github.com/kodkafa)."
