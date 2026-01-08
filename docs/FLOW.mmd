@@ -1,0 +1,131 @@
+flowchart TD
+  Start([User runs: kod / kodkafa]) --> A[Dashboard: Dual List]
+
+  %% ---------------------------
+  %% DASHBOARD (PAGINATION KEPT)
+  %% ---------------------------
+  A -->|Up/Down| A
+  A -->|Left: Prev Page| A
+  A -->|Right: Next Page| A
+
+  A -->|m: Menu| D[Command Menu]
+  
+  A -->|s| B[Search/Filter Mode]
+  B -->|Type / Backspace| B
+  B -->|Enter: Apply| A
+  B -->|Esc: Cancel| A
+
+  A -->|i: Info| C[Plugin Info View]
+  C -->|Esc/Left| A
+
+  A -->|Enter on plugin| E[Run Prompt View (Clean Screen)]
+  A -->|q| Z([Exit])
+
+  %% ---------------------------
+  %% COMMAND MENU
+  %% ---------------------------
+  D -->|Up/Down| D
+  D -->|Esc| A
+
+  D -->|Enter: add| D1[Add Plugin Prompt]
+  D -->|Enter: del| D2[Delete Plugin Prompt]
+  D -->|Enter: load| D3[Load Deps Prompt]
+  D -->|Enter: run| D7[Run By Name Prompt]
+  D -->|Enter: info| D5[Info By Name Prompt]
+  D -->|Enter: log| D6[Log By Name Prompt]
+  D -->|Enter: init| D4[Init Layout Action]
+
+  %% --- Add
+  D1 -->|Type path/repo| D1
+  D1 -->|Enter| UC_Add[AddPluginUseCase]
+  D1 -->|Esc| D
+  UC_Add --> R1[Result View (Clean Screen)]
+  R1 -->|Any key| D
+
+  %% --- Init
+  D4 --> UC_Init[InitLayoutUseCase]
+  UC_Init --> R4[Result View (Clean Screen)]
+  R4 -->|Any key| D
+
+  %% --- Load
+  D3 -->|Type plugin name| D3
+  D3 -->|Enter| UC_Load[LoadPluginDepsUseCase]
+  D3 -->|Esc| D
+  UC_Load --> R3[Result View (Clean Screen)]
+  R3 -->|Any key| D
+
+  %% --- Info by name
+  D5 -->|Type plugin name| D5
+  D5 -->|Enter| UC_Info[GetPluginInfoUseCase]
+  D5 -->|Esc| D
+  UC_Info --> R5[Result View (Clean Screen)]
+  R5 -->|Any key| D
+
+  %% --- Log by name
+  D6 -->|Type plugin name| D6
+  D6 -->|Enter| UC_Log[GetPluginLogUseCase]
+  D6 -->|Esc| D
+  UC_Log --> R6[Result View (Clean Screen)]
+  R6 -->|Any key| D
+
+  %% --- Run by name (goes to same Run Prompt View)
+  D7 -->|Type plugin name| D7
+  D7 -->|Enter| E
+  D7 -->|Esc| D
+
+  %% ---------------------------
+  %% DELETE FLOW (AS REQUESTED)
+  %% ConfirmDelete → ConfirmRemoveDeps → DeleteUseCase → Result
+  %% ---------------------------
+  D2 -->|Type plugin name| D2
+  D2 -->|Esc| D
+  D2 -->|Enter| D2a[ConfirmDelete (y/N)]
+  D2a -->|N or Esc| D
+  D2a -->|y| D2b[ConfirmRemoveDeps (y/N)]
+  D2b -->|y or N| UC_Del[DeletePluginUseCase]
+  UC_Del --> R2[Result View (Clean Screen)]
+  R2 -->|Any key| D
+
+  %% ---------------------------
+  %% RUN FLOW (CLEAN SCREEN + INDICATOR + INTERACTIVE STDIN)
+  %% ---------------------------
+  E --> H_LoadState[Load Plugin State + History]
+  H_LoadState --> E
+
+  %% Smart Prompt behavior
+  E -->|Up/Down: History Walk| E
+  E -->|Type/Edit args| E
+  E -->|Esc: Back| A
+  E -->|Enter: Run| P0[Prepare Run (Persist run intent + update usage)]
+
+  %% Decide IO mode
+  P0 --> IO{Interactive stdin needed?}
+
+  %% Non-interactive: stream output
+  IO -->|No| P1[Process View: Streaming Output + Running Indicator]
+  P1 -->|Output chunks| P1
+  P1 -->|Ctrl+C: Abort| P3[Finalize Run (status=aborted)]
+  P1 -->|Exit| P2[Finalize Run (exit code + duration)]
+
+  %% Interactive: attach tty, still show indicator/header
+  IO -->|Yes| P1i[Process View: Attached TTY + Running Indicator]
+  P1i -->|User types -> stdin| P1i
+  P1i -->|Ctrl+C: Abort| P3
+  P1i -->|Exit| P2
+
+  %% Post-run screen (clean)
+  P2 --> G[Post-Run View (Clean Screen)]
+  P3 --> G
+
+  %% Post-run actions
+  G -->|Enter: Rerun| E
+  G -->|Esc: Back| A_Refresh[Refresh Dashboard: Updates Usage Stats + Main List Separately]
+  A_Refresh --> A
+
+  %% Styles (optional)
+  style A fill:#4ECDC4
+  style E fill:#FFD93D
+  style P1 fill:#6BCB77
+  style P1i fill:#6BCB77
+  style G fill:#FFD93D
+  style Z fill:#FF6B6B

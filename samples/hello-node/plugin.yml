@@ -1,0 +1,11 @@
+name: hello-node
+description: "A simple node.js hello world"
+version: "1.0.0"
+interpreter: node
+entry: index.js
+usage: "kod run hello-node --name \"coding\""
+args:
+  - name: name
+    type: string
+    required: true
+  

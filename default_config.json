@@ -1,0 +1,22 @@
+{
+    "splash": true,
+    "trusted_domains": [
+        "github.com",
+        "gitlab.com",
+        "kodkafa.com"
+    ],
+    "runtime_paths": {},
+    "sort_by": "recent",
+    "items_per_page": 5,
+    "show_last_runs": true,
+    "fav_limit": 5,
+    "last_run_order": "last",
+    "last_run_limit": 10,
+    "history_size": 50,
+    "dependency_settings": {},
+    "supported_runtimes": {
+        "python": "python3",
+        "node": "node",
+        "r": "Rscript"
+    }
+}

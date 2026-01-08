@@ -1,0 +1,11 @@
+name: hello-r
+description: "A simple r lang hello world"
+version: "1.0.0"
+interpreter: r
+entry: hello.R
+usage: "kod run hello-r --name \"RUser\""
+args:
+  - name: name
+    type: string
+    required: true
+  

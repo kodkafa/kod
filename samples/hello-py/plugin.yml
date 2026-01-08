@@ -1,0 +1,10 @@
+name: hello-py
+description: "A simple python hello world"
+version: "1.0.0"
+interpreter: "python"
+entry: hello.py
+usage: "kod run hello-py --name \"Antigravity\""
+args:
+  - name: name
+    type: string
+    required: true

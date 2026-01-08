@@ -1,0 +1,29 @@
+# Binaries
+kod
+kodkafa
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Directories
+dist/
+tmp/
+vendor/
+
+# OS Specific
+.DS_Store
+Thumbs.db
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+
+# samples
+samples/*
+!samples/hello-*
