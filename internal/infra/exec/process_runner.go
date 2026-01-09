@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"kodkafa/internal/domain/entities"
@@ -57,20 +58,40 @@ func (r *ProcessRunner) Run(plugin *entities.Plugin, args string, mode ports.Run
 		// Start and streaming logic remains same...
 		_ = cmd.Start()
 
+		var wg sync.WaitGroup
+		var mu sync.Mutex // Protects outputBuilder
+
+		wg.Add(2)
+
 		go func() {
-			defer close(outputChan)
+			defer wg.Done()
 			scanner := bufio.NewScanner(stdout)
 			for scanner.Scan() {
 				text := scanner.Text()
-				outputChan <- ports.OutputChunk{Data: scanner.Bytes(), Plugin: plugin.Name}
+				outputChan <- ports.OutputChunk{Data: []byte(text), Plugin: plugin.Name}
+
+				mu.Lock()
 				outputBuilder.WriteString(text + "\n")
+				mu.Unlock()
 			}
+		}()
+
+		go func() {
+			defer wg.Done()
 			scannerErr := bufio.NewScanner(stderr)
 			for scannerErr.Scan() {
 				text := scannerErr.Text()
-				outputChan <- ports.OutputChunk{Data: scannerErr.Bytes(), IsErr: true, Plugin: plugin.Name}
+				outputChan <- ports.OutputChunk{Data: []byte(text), IsErr: true, Plugin: plugin.Name}
+
+				mu.Lock()
 				outputBuilder.WriteString(text + "\n")
+				mu.Unlock()
 			}
+		}()
+
+		go func() {
+			wg.Wait()
+			close(outputChan)
 		}()
 
 		err := cmd.Wait()

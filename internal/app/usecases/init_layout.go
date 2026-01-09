@@ -51,7 +51,7 @@ func (uc *InitLayoutUseCase) Execute() error {
 
 	// Initialize Core Runtimes
 	if err := uc.initCoreRuntimes(); err != nil {
-		fmt.Printf("Warning: failed to initialize some core runtimes: %v\n", err)
+		return fmt.Errorf("failed to initialize core runtimes: %w", err)
 	}
 
 	// Runtime detection

@@ -4,12 +4,12 @@ import "time"
 
 // PluginState stores per-plugin execution state and history.
 type PluginState struct {
-	PluginName      string
-	AddedAt         time.Time
-	LastExecutedAt  time.Time
-	RunCount        int
-	History         []RunRecord
-	MaxHistorySize  int
+	PluginName     string
+	AddedAt        time.Time
+	LastExecutedAt time.Time
+	RunCount       int
+	History        []RunRecord
+	MaxHistorySize int
 }
 
 // NewPluginState creates a new PluginState with default max history size.
@@ -24,6 +24,15 @@ func NewPluginState(pluginName string) *PluginState {
 
 // AddRunRecord appends a run record and maintains bounded history.
 func (ps *PluginState) AddRunRecord(record RunRecord) {
+	// Deduplicate: Remove existing record with same args
+	filtered := make([]RunRecord, 0, len(ps.History))
+	for _, r := range ps.History {
+		if r.Args != record.Args {
+			filtered = append(filtered, r)
+		}
+	}
+	ps.History = filtered
+
 	ps.History = append(ps.History, record)
 	ps.LastExecutedAt = record.Timestamp
 	ps.RunCount++

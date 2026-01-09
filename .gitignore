@@ -1,6 +1,6 @@
 # Binaries
-kod
-kodkafa
+/kod
+/kodkafa
 *.exe
 *.dll
 *.so

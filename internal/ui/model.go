@@ -5,8 +5,10 @@ import (
 	"kodkafa/internal/app/dto"
 	"kodkafa/internal/app/usecases"
 	"kodkafa/internal/domain/ports"
+	"kodkafa/internal/ui/components"
 	"kodkafa/internal/ui/screens"
 	"kodkafa/internal/ui/tea"
+	"strings"
 
 	tea_pkg "github.com/charmbracelet/bubbletea"
 )
@@ -24,6 +26,8 @@ type Model struct {
 	activeScreen tea_pkg.Model
 	initialCmd   tea_pkg.Cmd
 
+	Err error
+
 	outputChan chan ports.OutputChunk
 
 	isLoading bool
@@ -40,6 +44,9 @@ type Model struct {
 	pendingName       string
 	deletePendingName string
 	deleteRemoveDeps  bool
+
+	width  int
+	height int
 }
 
 // NewModel creates the root TUI model.
@@ -86,6 +93,9 @@ func (m *Model) Update(msg tea_pkg.Msg) (tea_pkg.Model, tea_pkg.Cmd) {
 	var cmd tea_pkg.Cmd
 
 	switch msg := msg.(type) {
+	case tea_pkg.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
 	case tea.SwitchScreenMsg:
 		if msg.ScreenName == "dashboard" {
 			m.activeScreen = m.dashboard
@@ -236,7 +246,7 @@ func (m *Model) Update(msg tea_pkg.Msg) (tea_pkg.Model, tea_pkg.Cmd) {
 	case tea.RunFinishedMsg:
 		m.loading(false)
 		m.state = tea.StatePostRun
-		m.postRunModel = screens.NewResultsModel(msg.Result)
+		m.postRunModel = screens.NewResultsModel(msg.Result, m.width, m.height)
 		m.activeScreen = m.postRunModel
 		return m, m.postRunModel.Init()
 
@@ -280,9 +290,23 @@ func (m *Model) Update(msg tea_pkg.Msg) (tea_pkg.Model, tea_pkg.Cmd) {
 		}
 
 	case tea_pkg.KeyMsg:
+		if m.Err != nil {
+			switch msg.String() {
+			case "esc", "enter", "q", "left":
+				m.Err = nil
+				m.loading(false)
+				// Return to dashboard or menu
+				m.state = tea.StateNormal
+				m.activeScreen = m.dashboard
+				return m, m.dashboard.Init()
+			}
+			// Consume other keys when error is showing
+			return m, nil
+		}
+
 		switch msg.String() {
 		case "ctrl+c", "q":
-			if m.state == tea.StateNormal {
+			if m.Err != nil || m.state == tea.StateNormal {
 				return m, tea_pkg.Quit
 			}
 		}
@@ -299,6 +323,7 @@ func (m *Model) Update(msg tea_pkg.Msg) (tea_pkg.Model, tea_pkg.Cmd) {
 
 	case tea.ErrMsg:
 		m.loading(false)
+		m.Err = msg.Err
 	}
 
 	m.activeScreen, cmd = m.activeScreen.Update(msg)
@@ -334,6 +359,16 @@ func waitForOutput(c chan ports.OutputChunk) tea_pkg.Cmd {
 
 // View renders the current active screen.
 func (m *Model) View() string {
+	if m.Err != nil {
+		var b strings.Builder
+		b.WriteString(components.RenderHeader("ERROR", "Something went wrong"))
+		b.WriteString(fmt.Sprintf("\n\n  %v\n\n", m.Err))
+		b.WriteString("\n")
+		b.WriteString(components.RenderFooter(
+			components.FooterItem{Key: "Esc/Enter", Label: "Back"},
+		))
+		return b.String()
+	}
 	view := m.activeScreen.View()
 	if m.isLoading {
 		return fmt.Sprintf("\n  Thinking...\n\n%s", view) // Overlay or prefix

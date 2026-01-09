@@ -3,7 +3,9 @@ package repo
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"kodkafa/internal/domain/entities"
@@ -74,6 +76,25 @@ func (pr *PluginRepositoryImpl) Get(name string) (*entities.Plugin, error) {
 // Add registers a new plugin from a local path or remote URL.
 // For now, only local paths are supported.
 func (pr *PluginRepositoryImpl) Add(source string) (*entities.Plugin, error) {
+	// Check if source is a remote URL
+	if isURL(source) {
+		// Create temp directory for cloning
+		tempDir, err := os.MkdirTemp("", "kodkafa-plugin-*")
+		if err != nil {
+			return nil, fmt.Errorf("failed to create temp dir: %w", err)
+		}
+		defer os.RemoveAll(tempDir) // Clean up
+
+		// Clone repository
+		cmd := exec.Command("git", "clone", source, tempDir)
+		if output, err := cmd.CombinedOutput(); err != nil {
+			return nil, fmt.Errorf("git clone failed: %s: %w", string(output), err)
+		}
+
+		// Update source to point to temp dir
+		source = tempDir
+	}
+
 	// Check if source is a local path
 	sourceInfo, err := os.Stat(source)
 	if err != nil {
@@ -88,7 +109,7 @@ func (pr *PluginRepositoryImpl) Add(source string) (*entities.Plugin, error) {
 	manifestPath := filepath.Join(source, "plugin.yml")
 	manifest, err := pr.readManifest(manifestPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read plugin manifest: %w", err)
+		return nil, fmt.Errorf("this does not look like a KODKAFA plugin. plugin.yml NOT FOUND at %s", source)
 	}
 
 	// Validate manifest
@@ -249,4 +270,11 @@ func (pr *PluginRepositoryImpl) copyDirectory(src, dst string) error {
 		// Write destination file
 		return os.WriteFile(dstPath, data, info.Mode())
 	})
+}
+
+// isURL checks if the string looks like a URL or git connection string
+func isURL(s string) bool {
+	return strings.HasPrefix(s, "http://") ||
+		strings.HasPrefix(s, "https://") ||
+		strings.HasPrefix(s, "git@")
 }

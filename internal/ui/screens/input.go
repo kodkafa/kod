@@ -95,7 +95,7 @@ func (m *InputModel) View() string {
 		errStr = lipgloss.NewStyle().Foreground(theme.Error).Render(fmt.Sprintf("\n  Error: %v", m.err))
 	}
 
-	prompt := "Enter Plugin Path:"
+	prompt := "Enter Plugin Path or Repo Address:"
 	if m.mode == tea.InputModeName {
 		prompt = "Enter Plugin Name:"
 	}

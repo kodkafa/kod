@@ -1,4 +1,5 @@
-# KODKAFA — A Persistent CLI for Your Scripts, With Memory
+# KODKAFA
+> _A Persistent CLI for Your Scripts, With Memory_
 
 ```text
 ██╗  ███╗ ██████╗ ███████╗ ██╗  ███╗ ██████╗ ███████╗ ██████╗
@@ -8,6 +9,9 @@
 ██║  ███╗╚██████╔╝███████╔╝██║  ███╗██║   ██║██║     ██║   ██║
 ╚═╝  ╚══╝ ╚═════╝ ╚══════╝ ╚═╝  ╚══╝╚═╝   ╚═╝╚═╝     ╚═╝   ╚═╝
 ```
+[![Install with Homebrew](https://img.shields.io/badge/Homebrew-Install-2a7d2e?logo=homebrew&logoColor=white)](https://github.com/kodkafa/kod#macos-homebrew)
+<a href="https://github.com/charmbracelet/bubbletea/releases"><img src="https://img.shields.io/github/release/kodkafa/kod" alt="Latest Release"></a>
+
 
 KODKAFA is a persistent meta-runner for your local scripts and micro-tools. It manages them as **plugins**, provides a stunning TUI dashboard, and tracks **execution history per plugin** so you can resume workflows without re-typing complex flags.
 
@@ -47,7 +51,7 @@ kod init                 # Initialize ~/.kodkafa structure
 kod list                 # List installed plugins
 kod info <name>          # View plugin metadata & stats
 kod add <path|url>       # Install a plugin
-kod run <name> [args...] # Execute a plugin directly
+kod run <name>           # Execute a plugin directly
 kod load <name>          # reload/install plugin dependencies
 kod del <name>           # Remove a plugin
 ```
@@ -98,6 +102,8 @@ entry: run.py     # Main entry point file
 usage: "args..."  # Hint for the prompt
 ```
 
+> [PLUGIN.md](docs/PLUGIN.md)
+
 ### Supported Languages
 *   **Python**: Runs in an isolated venv managed by KODKAFA.
 *   **Node.js**: Runs with its own `node_modules` (handled via `pnpm`/`npm`).
@@ -145,4 +151,4 @@ KODKAFA follows a **SOLID** architecture, ensuring the UI is strictly a presenta
 
 ---
 
-**License**: MIT
+**License**: [MIT](LICENSE)

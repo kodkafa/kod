@@ -37,7 +37,7 @@ func RenderHeader(tagline, title string) string {
 		headerTop += " " + taglineStyle.Render("- "+tagline)
 	}
 
-	out := headerTop + " v" + build.Version + "\n"
+	out := headerTop + " " + build.Version + "\n"
 	if title != "" {
 		out += headerTitleStyle.Render(title) + "\n"
 	}

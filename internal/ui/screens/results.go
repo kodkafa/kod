@@ -2,13 +2,14 @@ package screens
 
 import (
 	"fmt"
+	"strings"
+
 	"kodkafa/internal/app/dto"
 	"kodkafa/internal/ui/components"
 	"kodkafa/internal/ui/tea"
-	"strings"
-
 	"kodkafa/internal/ui/theme"
 
+	"github.com/charmbracelet/bubbles/viewport"
 	tea_pkg "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -19,11 +20,30 @@ var (
 )
 
 type ResultsModel struct {
-	result dto.RunPluginResult
+	result   dto.RunPluginResult
+	viewport viewport.Model
+	ready    bool
 }
 
-func NewResultsModel(res dto.RunPluginResult) *ResultsModel {
-	return &ResultsModel{result: res}
+func NewResultsModel(res dto.RunPluginResult, width, height int) *ResultsModel {
+	m := &ResultsModel{
+		result: res,
+	}
+	if width > 0 && height > 0 {
+		m.updateViewport(width, height)
+	}
+	return m
+}
+
+func (m *ResultsModel) updateViewport(width, height int) {
+	headerHeight := 8 // Approximate height of header + status info
+	footerHeight := 3 // Approximate height of footer
+	verticalMarginHeight := headerHeight + footerHeight
+
+	m.viewport = viewport.New(width, height-verticalMarginHeight)
+	m.viewport.YPosition = headerHeight
+	m.viewport.SetContent(m.result.Output)
+	m.ready = true
 }
 
 func (m *ResultsModel) Init() tea_pkg.Cmd {
@@ -31,26 +51,42 @@ func (m *ResultsModel) Init() tea_pkg.Cmd {
 }
 
 func (m *ResultsModel) Update(msg tea_pkg.Msg) (tea_pkg.Model, tea_pkg.Cmd) {
+	var (
+		cmd  tea_pkg.Cmd
+		cmds []tea_pkg.Cmd
+	)
+
 	switch msg := msg.(type) {
+	case tea_pkg.WindowSizeMsg:
+		m.updateViewport(msg.Width, msg.Height)
+
 	case tea_pkg.KeyMsg:
 		switch msg.String() {
 		case "enter":
-			// Return to Prompt - Enter
 			return m, func() tea_pkg.Msg {
 				return tea.SwitchStateMsg{State: tea.StatePrompt}
 			}
 		case "esc":
-			// Back - A
 			return m, func() tea_pkg.Msg {
 				return tea.SwitchStateMsg{State: tea.StateNormal}
 			}
 		}
 	}
-	return m, nil
+
+	m.viewport, cmd = m.viewport.Update(msg)
+	cmds = append(cmds, cmd)
+
+	return m, tea_pkg.Batch(cmds...)
 }
 
 func (m *ResultsModel) View() string {
+	if !m.ready {
+		return "\n  Initializing..."
+	}
+
 	var b strings.Builder
+
+	// Create header content
 	b.WriteString(components.RenderHeader("", "RESULTS"))
 
 	status := successStyle.Render("SUCCESS")
@@ -61,27 +97,27 @@ func (m *ResultsModel) View() string {
 		}
 	}
 
-	// PROMPT: blue(interpreter) yellow(plugin) args
 	interpreter := lipgloss.NewStyle().Foreground(theme.Secondary).Bold(true).Render(m.result.Interpreter)
 	plugin := lipgloss.NewStyle().Foreground(theme.Accent).Bold(true).Render(m.result.PluginName)
 
 	b.WriteString(fmt.Sprintf("\nPROMPT: %s %s %s\n\n", interpreter, plugin, m.result.Args))
-
 	b.WriteString(fmt.Sprintf("  Status:      %s\n", status))
 	b.WriteString(fmt.Sprintf("  ExitCode:    %d\n", m.result.ExitCode))
 	b.WriteString(fmt.Sprintf("  Duration:    %v\n", m.result.Duration))
+	b.WriteString("\n")
+	b.WriteString(lipgloss.NewStyle().Foreground(theme.Muted).Render("OUTPUT (Scroll with ↑/↓)"))
+	b.WriteString("\n")
 
-	if m.result.Output != "" {
-		b.WriteString("\n")
-		b.WriteString(lipgloss.NewStyle().Foreground(theme.Muted).Render("OUTPUT"))
-		b.WriteString("\n")
-		b.WriteString(lipgloss.NewStyle().Border(lipgloss.NormalBorder(), false, false, false, true).BorderForeground(theme.Muted).PaddingLeft(1).Render(m.result.Output))
-	}
+	// Render viewport
+	b.WriteString(m.viewport.View())
 
-	b.WriteString("\n\n")
+	// Ensure we don't double newlines too much, viewport might handle it.
+
+	b.WriteString("\n")
 	b.WriteString(components.RenderFooter(
 		components.FooterItem{Key: "Esc", Label: "Back"},
 		components.FooterItem{Key: "Enter", Label: "Re-run"},
+		components.FooterItem{Key: "↑/↓", Label: "Scroll"},
 	))
 
 	return b.String()

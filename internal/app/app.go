@@ -2,12 +2,12 @@ package app
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"kodkafa/internal/app/usecases"
+	"kodkafa/internal/build"
 	"kodkafa/internal/infra/exec"
 	"kodkafa/internal/infra/repo"
 	"kodkafa/internal/infra/runtime"
@@ -18,10 +18,10 @@ import (
 )
 
 // Run initializes dependencies and starts the TUI or executes CLI commands.
-func Run() {
+func Run() error {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		log.Fatal("Could not determine home directory:", err)
+		return fmt.Errorf("could not determine home directory: %w", err)
 	}
 	baseDir := filepath.Join(home, ".kodkafa")
 
@@ -31,7 +31,7 @@ func Run() {
 
 	// Always ensure layout on start
 	if err := initUC.Execute(); err != nil {
-		log.Fatal("Failed to initialize layout:", err)
+		return fmt.Errorf("failed to initialize layout: %w", err)
 	}
 
 	pluginRepo := repo.NewPluginRepository(baseDir)
@@ -50,8 +50,7 @@ func Run() {
 
 	// 2. Dispatch CLI or TUI
 	if len(os.Args) > 1 {
-		handleCLI(os.Args[1:], initUC, addUC, deleteUC, loadUC, infoUC, runUC, listUC)
-		return
+		return handleCLI(os.Args[1:], initUC, addUC, deleteUC, loadUC, infoUC, runUC, listUC)
 	}
 
 	// 3. Start TUI
@@ -64,28 +63,26 @@ func Run() {
 	rootModel := ui.NewModel(listUC, addUC, deleteUC, loadUC, infoUC, runUC, initUC, showSplash)
 	p := tea_pkg.NewProgram(rootModel, tea_pkg.WithAltScreen())
 	if _, err := p.Run(); err != nil {
-		log.Fatal(err)
+		return fmt.Errorf("TUI error: %w", err)
 	}
+	return nil
 }
 
-func handleCLI(args []string, initUC *usecases.InitLayoutUseCase, addUC *usecases.AddPluginUseCase, deleteUC *usecases.DeletePluginUseCase, loadUC *usecases.LoadPluginDepsUseCase, infoUC *usecases.GetPluginInfoUseCase, runUC *usecases.RunPluginUseCase, listUC *usecases.ListPluginsUseCase) {
+func handleCLI(args []string, initUC *usecases.InitLayoutUseCase, addUC *usecases.AddPluginUseCase, deleteUC *usecases.DeletePluginUseCase, loadUC *usecases.LoadPluginDepsUseCase, infoUC *usecases.GetPluginInfoUseCase, runUC *usecases.RunPluginUseCase, listUC *usecases.ListPluginsUseCase) error {
 	cmd := args[0]
 	switch cmd {
 	case "init":
 		if err := initUC.Execute(); err != nil {
-			fmt.Printf("Error: %v\n", err)
-			os.Exit(1)
+			return fmt.Errorf("init error: %w", err)
 		}
 		fmt.Println("System initialized successfully.")
 	case "add", "a":
 		if len(args) < 2 {
-			fmt.Println("Usage: kodkafa add <path|url>")
-			os.Exit(1)
+			return fmt.Errorf("Usage: kodkafa add <path|url>")
 		}
 		res, err := addUC.Execute(usecases.AddPluginInput{Source: args[1]})
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			os.Exit(1)
+			return fmt.Errorf("add error: %w", err)
 		}
 		fmt.Printf("Plugin added: %s\n", res.Plugin.Name)
 
@@ -99,16 +96,14 @@ func handleCLI(args []string, initUC *usecases.InitLayoutUseCase, addUC *usecase
 		}
 	case "del", "d":
 		if len(args) < 2 {
-			fmt.Println("Usage: kodkafa del <name>")
-			os.Exit(1)
+			return fmt.Errorf("Usage: kodkafa del <name>")
 		}
 		name := args[1]
 
 		// 0. Check existence first
 		_, err := infoUC.Execute(usecases.GetPluginInfoInput{PluginName: name})
 		if err != nil {
-			fmt.Printf("Error: Plugin '%s' not found.\n", name)
-			return
+			return fmt.Errorf("plugin '%s' not found", name)
 		}
 
 		fmt.Printf("REMOVE PLUGIN: %s\n", name)
@@ -118,7 +113,7 @@ func handleCLI(args []string, initUC *usecases.InitLayoutUseCase, addUC *usecase
 		fmt.Scanln(&confirm)
 		if strings.ToLower(confirm) != "y" {
 			fmt.Println("Operation cancelled.")
-			return
+			return nil
 		}
 
 		fmt.Print("Remove dependencies as well? (y/N): ")
@@ -128,14 +123,12 @@ func handleCLI(args []string, initUC *usecases.InitLayoutUseCase, addUC *usecase
 
 		res, err := deleteUC.Execute(usecases.DeletePluginInput{PluginName: name, RemoveDeps: removeDeps})
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			os.Exit(1)
+			return fmt.Errorf("delete error: %w", err)
 		}
 		fmt.Printf("Success: %s\n", res.Message)
 	case "run", "r":
 		if len(args) < 2 {
-			fmt.Println("Usage: kodkafa run <name>")
-			os.Exit(1)
+			return fmt.Errorf("Usage: kodkafa run <name>")
 		}
 		name := args[1]
 
@@ -144,35 +137,33 @@ func handleCLI(args []string, initUC *usecases.InitLayoutUseCase, addUC *usecase
 		rootModel.StartRun(name)
 		p := tea_pkg.NewProgram(rootModel, tea_pkg.WithAltScreen())
 		if _, err := p.Run(); err != nil {
-			log.Fatal(err)
+			return fmt.Errorf("TUI run error: %w", err)
 		}
 	case "info", "i":
 		if len(args) < 2 {
-			fmt.Println("Usage: kodkafa info <name>")
-			os.Exit(1)
+			return fmt.Errorf("Usage: kodkafa info <name>")
 		}
 		res, err := infoUC.Execute(usecases.GetPluginInfoInput{PluginName: args[1]})
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			os.Exit(1)
+			return fmt.Errorf("info error: %w", err)
 		}
 		fmt.Printf("Plugin: %s\nInterpreter: %s\nDescription: %s\n", res.Plugin.Name, res.Plugin.Interpreter, res.Plugin.Description)
 	case "load", "l":
 		if len(args) < 2 {
-			fmt.Println("Usage: kodkafa load <name>")
-			os.Exit(1)
+			return fmt.Errorf("Usage: kodkafa load <name>")
 		}
 		fmt.Printf("Installing dependencies for %s...\n", args[1])
 		res, err := loadUC.Execute(usecases.LoadPluginDepsInput{PluginName: args[1]})
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			os.Exit(1)
+			return fmt.Errorf("load error: %w", err)
 		}
 		fmt.Printf("Dependencies loaded for %s. Status: %s\n", args[1], res.Status)
 	case "log":
 		fmt.Println("Log view not implemented in CLI yet.")
+	case "version", "v":
+		fmt.Printf("kodkafa version %s\n", build.Version)
 	default:
-		fmt.Printf("Unknown command: %s\n", cmd)
-		os.Exit(1)
+		return fmt.Errorf("unknown command: %s", cmd)
 	}
+	return nil
 }
